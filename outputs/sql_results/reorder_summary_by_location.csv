@@ -1,0 +1,4 @@
+location,series,to_reorder,units,order_value,high_risk
+CA_1,41,5,462,1458.1200000000001,4
+TX_1,41,8,516,1077.0,6
+WI_1,41,11,924,1882.74,10

@@ -1,0 +1,86 @@
+// Demand Forecasting & Inventory Reorder Engine: DAX measures
+// Create these in a blank table named _Measures (Home > Enter Data > one empty column, then delete the column).
+// Table names = CSV file names (see POWERBI_GUIDE.md). Values must match reports/dashboard_reconciliation.md.
+
+// ---------------------------------------------------------------- Page 1: Demand
+// Units sold across the filtered SKU-locations and dates.
+Total Units = SUM ( fact_sales_daily[units] )
+
+// Revenue = units x sell price (computed upstream per row).
+Total Revenue = SUM ( fact_sales_daily[revenue] )
+
+// Average units per calendar day (all selected SKU-locations combined); used by the weekday chart so unequal weekday counts do not bias it.
+Avg Daily Units = DIVIDE ( [Total Units], DISTINCTCOUNT ( fact_sales_daily[date] ) )
+
+// ---------------------------------------------------------------- Page 2: Forecast performance
+// Forecast units for the selected model: backtest folds plus the 28-day future rows.
+Forecast Units = SUM ( fact_forecast[forecast_demand] )
+
+// Actual units on the backtest rows (blank on future rows), for the actual-vs-forecast line.
+Actual Units (Backtest) = SUM ( fact_forecast[actual_demand] )
+
+// Mean absolute error in units per SKU-day. abs_error is blank on future rows, which AVERAGE ignores.
+MAE = AVERAGE ( fact_forecast[abs_error] )
+
+// Root mean squared error: square root of the mean squared daily error (backtest rows only).
+RMSE =
+SQRT (
+    AVERAGEX (
+        FILTER ( fact_forecast, NOT ISBLANK ( fact_forecast[error] ) ),
+        fact_forecast[error] ^ 2
+    )
+)
+
+// Weighted absolute percentage error = sum of absolute errors / sum of actuals. Headline accuracy metric (MAPE is not used: daily sales contain zeros).
+WAPE = DIVIDE ( SUM ( fact_forecast[abs_error] ), SUM ( fact_forecast[actual_demand] ) )
+
+// Bias % = sum of signed errors / sum of actuals. Positive = over-forecast (error = forecast - actual).
+Bias % = DIVIDE ( SUM ( fact_forecast[error] ), SUM ( fact_forecast[actual_demand] ) )
+
+// Name of the model chosen by the parsimony rule, for a card.
+Selected Model = CALCULATE ( SELECTEDVALUE ( model_comparison[model] ), model_comparison[selected] = TRUE () )
+
+// ---------------------------------------------------------------- Page 3: Inventory reorder engine
+// SKU-locations whose recommended order quantity is above zero today. "+ 0" shows 0 instead of blank.
+SKUs To Reorder = CALCULATE ( COUNTROWS ( reorder_list ), reorder_list[recommended_order_quantity] > 0 ) + 0
+
+// Units to order today (already rounded up to whole cases).
+Recommended Units = SUM ( reorder_list[recommended_order_quantity] )
+
+// Cost of today's orders = sum of quantity x latest sell price (reorder_list[order_value]).
+Order Value = SUM ( reorder_list[order_value] )
+
+// SKU-locations that will stock out before a new order can arrive (on-hand < lead-time demand).
+High Risk SKUs = CALCULATE ( COUNTROWS ( reorder_list ), reorder_list[stockout_risk] = "HIGH" ) + 0
+
+// Fill rate of the proposed policy in the last-28-day replay (all locations). Fill rate = units sold / units demanded.
+Fill Rate =
+CALCULATE (
+    MAX ( policy_simulation[fill_rate] ),
+    policy_simulation[policy] = "proposed",
+    policy_simulation[location] = "ALL"
+)
+
+// Same replay for the naive rule (order-up-to = 28-day average x (lead time + cycle), no safety stock), for comparison.
+Fill Rate (Naive) =
+CALCULATE (
+    MAX ( policy_simulation[fill_rate] ),
+    policy_simulation[policy] = "naive_ma28",
+    policy_simulation[location] = "ALL"
+)
+
+// Hex colour for conditional formatting of stockout_risk (Format style > Field value).
+Risk Color =
+SWITCH (
+    MAX ( reorder_list[stockout_risk] ),
+    "HIGH", "#FECACA",
+    "MEDIUM", "#FED7AA",
+    "OVERSTOCK", "#BFDBFE",
+    "OK", "#BBF7D0",
+    "#FFFFFF"
+)
+
+// ---------------------------------------------------------------- Calculated column (not a measure)
+// Add to reorder_list, then Column tools > Sort by column: set stockout_risk to be sorted by Risk Rank
+// (plain text sort would give HIGH, MEDIUM, OK, OVERSTOCK).
+// Risk Rank = SWITCH ( reorder_list[stockout_risk], "HIGH", 1, "MEDIUM", 2, "OVERSTOCK", 3, "OK", 4 )

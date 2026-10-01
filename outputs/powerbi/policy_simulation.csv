@@ -1,0 +1,9 @@
+policy,location,series,series_days,fill_rate,stockout_days,stockout_day_pct,avg_on_hand_units,avg_on_hand_value,orders_placed
+naive_ma28,ALL,123,3444,0.913,371,10.772,52.456,115.622,353
+proposed,ALL,123,3444,0.967,148,4.297,66.535,150.002,383
+naive_ma28,CA_1,41,1148,0.921,111,9.669,50.8,119.808,120
+proposed,CA_1,41,1148,0.967,46,4.007,63.913,156.788,125
+naive_ma28,TX_1,41,1148,0.902,149,12.979,57.672,119.588,111
+proposed,TX_1,41,1148,0.966,62,5.401,74.765,157.476,129
+naive_ma28,WI_1,41,1148,0.915,111,9.669,48.896,107.469,122
+proposed,WI_1,41,1148,0.969,40,3.484,60.926,135.741,129
